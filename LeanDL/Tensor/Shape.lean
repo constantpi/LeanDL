@@ -91,7 +91,7 @@ private theorem broadcastDim_pos {left right : Nat}
     split <;> simp_all
 
 /-- broadcast結果がsomeのときにresultに要素が存在するための条件。 -/
-private theorem broadcast_some_pos {leftRank rightRank : Nat}
+theorem broadcast_some_pos {leftRank rightRank : Nat}
     (left : Vector Nat leftRank)
     (right : Vector Nat rightRank)
     (result : Vector Nat (max leftRank rightRank))
