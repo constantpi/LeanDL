@@ -1,5 +1,5 @@
 import LeanDL.Tensor.Shape
-import LeanDL.Tensor.Tensor
+import LeanDL.Tensor.Basic
 
 namespace DL.Tensor
 

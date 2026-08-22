@@ -1,5 +1,5 @@
 import Init.Data.Vector.Lemmas
-import LeanDL.Tensor.Tensor
+import LeanDL.Tensor.Basic
 
 namespace DL.Tensor
 
