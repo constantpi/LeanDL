@@ -31,6 +31,26 @@ instance [ToString α] {rank : Nat} {shape : Vector Nat rank} :
 def index_in_bounds {rank : Nat} (shape : Vector Nat rank) (index : Vector Nat rank) : Prop :=
   ∀ i : Fin rank, index.get i < shape.get i
 
+/-- shape の各次元について範囲内であることが保証された Tensor 添字。 -/
+structure Index {rank : Nat} (shape : Vector Nat rank) where
+  values : Vector Nat rank
+  isValid : index_in_bounds shape values
+
+/-- 具体的な Tensor 添字の境界条件を自動証明する。 -/
+macro "tensor_bounds" : tactic =>
+  `(tactic|
+    simp [DL.Tensor.index_in_bounds, Fin.forall_fin_succ, Vector.get] <;>
+    omega)
+
+/--
+Vector から安全な `Tensor.Index` を作る。
+境界条件を `tensor_bounds` で証明できなければコンパイルエラーになる。
+-/
+syntax "tensor_index% " term:arg : term
+macro_rules
+  | `(tensor_index% $values) =>
+      `(DL.Tensor.Index.mk $values (by tensor_bounds))
+
 /-- indexを1次元アクセスに変換する -/
 def to_flat_index {rank : Nat} (shape : Vector Nat rank) (index : Vector Nat rank) : Nat :=
   (shape.zip index).foldl (fun flat di => flat * di.1 + di.2) 0
@@ -95,24 +115,29 @@ theorem to_flat_index_lt_size
 /-- Tensor型からデータの取得 -/
 def get {α : Type} {rank : Nat} {shape : Vector Nat rank}
     (t : Tensor α shape)
-    (index : Vector Nat rank)
-    (h : index_in_bounds shape index) : α :=
-  let flat_index := to_flat_index shape index
-  let hsize : flat_index < shape.foldl (· * ·) 1 := to_flat_index_lt_size shape index h
+    (index : Index shape) : α :=
+  let flat_index := to_flat_index shape index.values
+  let hsize : flat_index < shape.foldl (· * ·) 1 :=
+    to_flat_index_lt_size shape index.values index.isValid
   have : flat_index < t.data.size := by
     rw [t.hsize]
     exact hsize
 
   t.data[flat_index]
 
+/-- 安全な `Tensor.Index` を使った `tensor[index]` 記法。 -/
+instance {α : Type} {rank : Nat} {shape : Vector Nat rank} :
+    GetElem (Tensor α shape) (Index shape) α (fun _ _ => True) where
+  getElem t index _ := get t index
+
 /-- Tensor型へのデータの書き込み -/
 def set {α : Type} {rank : Nat} {shape : Vector Nat rank}
     (t : Tensor α shape)
-    (index : Vector Nat rank)
-    (h : index_in_bounds shape index)
+    (index : Index shape)
     (value : α) : Tensor α shape :=
-  let flat_index := to_flat_index shape index
-  let hsize : flat_index < shape.foldl (· * ·) 1 := to_flat_index_lt_size shape index h
+  let flat_index := to_flat_index shape index.values
+  let hsize : flat_index < shape.foldl (· * ·) 1 :=
+    to_flat_index_lt_size shape index.values index.isValid
   have : flat_index < t.data.size := by
     rw [t.hsize]
     exact hsize
