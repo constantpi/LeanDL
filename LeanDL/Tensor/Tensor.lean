@@ -1,4 +1,5 @@
 import Init.Data.Vector.Lemmas
+import LeanDL.Tensor.Prod
 
 namespace DL
 
@@ -175,6 +176,32 @@ def set {α : Type} {rank : Nat} {shape : Vector Nat rank}
     exact t.hsize
   { data := new_data, hsize := hsize' }
 
+/-- 1次元indexから多次元indexへ変換する。 -/
+def to_multi_index {rank : Nat} (shape : Vector Nat rank) (flat_index : Nat) (isLt : flat_index < shape.foldl (· * ·) 1) : Index shape :=
+  -- 最初にshapeの各要素が0でないことを確認する
+  have hsize : ∀ i : Fin rank, 0 < shape.get i := by
+    have h_length : shape.foldl (· * ·) 1 > 0 := by omega
+    intro i
+    by_cases h : shape.get i = 0
+    .
+      have hprod : shape.foldl (· * ·) 1 = 0 := by
+        apply DL.Vector.foldl_mul_eq_zero_of_mem shape 1
+        rw [← h]
+        apply Vector.getElem_mem
+      omega
+    .
+      omega
+  let values := Vector.ofFn fun i =>
+    let stride := (shape.toList.drop (i.val + 1)).foldl (· * ·) 1
+    (flat_index / stride) % shape.get i
+  {
+    values := values
+    isValid := by
+      intro i
+      change values[i.val] < shape.get i
+      simp [values]
+      exact Nat.mod_lt _ (hsize i)
+  }
 
 end Tensor
 end DL
