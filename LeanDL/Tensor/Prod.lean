@@ -1,3 +1,5 @@
+import Mathlib
+
 namespace DL
 
 theorem List.fold_mul_ne_zero
@@ -51,7 +53,7 @@ theorem Vector.foldl_mul_ne_zero
       intro x hx acc _ hacc
       obtain ⟨i, hi, hget⟩ := Vector.getElem_of_mem hx
       simp [← hget]
-      exact Nat.mul_ne_zero hacc (hxs ⟨i, hi⟩))
+      exact ⟨hacc, hxs ⟨i, hi⟩⟩)
 
 private theorem List.foldl_mul_zero (xs : List Nat) :
     xs.foldl (· * ·) 0 = 0 := by
