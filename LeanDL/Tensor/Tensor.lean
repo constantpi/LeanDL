@@ -17,10 +17,37 @@ def fill {α : Type} {rank : Nat} (shape : Vector Nat rank) (value : α) : Tenso
 def shape {α : Type} {rank : Nat} {shape : Vector Nat rank} (_t : Tensor α shape) : Vector Nat rank :=
   shape
 
-/-- Tensor の shape と一次元化されたデータを文字列に変換する。 -/
+/-- 指定された個数の空白を作る。 -/
+private def spaces (count : Nat) : String :=
+  (List.replicate count ' ').asString
+
+/-- 要素を右寄せして、Tensor 内の表示幅を揃える。 -/
+private def padLeft (width : Nat) (value : String) : String :=
+  spaces (width - value.length) ++ value
+
+/-- shape に従って一次元の値を NumPy 風の多次元表現にする。 -/
+private def formatValues (dims : List Nat) (values : List String) (depth : Nat) : String :=
+  match dims with
+  | [] => values.head?.getD ""
+  | dim :: rest =>
+      let chunkSize := rest.foldl (· * ·) 1
+      let chunks := (List.range dim).map fun i =>
+        formatValues rest ((values.drop (i * chunkSize)).take chunkSize) (depth + 1)
+      let separator :=
+        if rest.isEmpty then
+          " "
+        else
+          (List.replicate rest.length '\n').asString ++ spaces (depth + 1)
+      "[" ++ String.intercalate separator chunks ++ "]"
+termination_by dims.length
+
+/-- Tensor のデータを NumPy 風の多次元文字列に変換する。 -/
 def toString [ToString α] {rank : Nat} {shape : Vector Nat rank}
     (t : Tensor α shape) : String :=
-  s!"Tensor(shape := {shape.toArray}, data := {t.data})"
+  let values := t.data.toList.map fun value => s!"{value}"
+  let width := values.foldl (fun current value => max current value.length) 0
+  let paddedValues := values.map (padLeft width)
+  formatValues shape.toList paddedValues 0
 
 /-- `IO.println tensor` のように Tensor を直接表示できるようにする。 -/
 instance [ToString α] {rank : Nat} {shape : Vector Nat rank} :
