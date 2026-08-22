@@ -8,6 +8,25 @@ structure Tensor (α : Type) {rank : Nat} (shape : Vector Nat rank) where
 
 namespace Tensor
 
+def fill {α : Type} {rank : Nat} (shape : Vector Nat rank) (value : α) : Tensor α shape :=
+  let size := shape.foldl (· * ·) 1
+  let data := Array.replicate size value
+  have hsize : data.size = size := by simp [data]
+  { data := data, hsize := hsize }
+
+def shape {α : Type} {rank : Nat} {shape : Vector Nat rank} (_t : Tensor α shape) : Vector Nat rank :=
+  shape
+
+/-- Tensor の shape と一次元化されたデータを文字列に変換する。 -/
+def toString [ToString α] {rank : Nat} {shape : Vector Nat rank}
+    (t : Tensor α shape) : String :=
+  s!"Tensor(shape := {shape.toArray}, data := {t.data})"
+
+/-- `IO.println tensor` のように Tensor を直接表示できるようにする。 -/
+instance [ToString α] {rank : Nat} {shape : Vector Nat rank} :
+    ToString (Tensor α shape) where
+  toString := Tensor.toString
+
 /-- indexがshapeの範囲内であることを保証する -/
 def index_in_bounds {rank : Nat} (shape : Vector Nat rank) (index : Vector Nat rank) : Prop :=
   ∀ i : Fin rank, index.get i < shape.get i
@@ -85,6 +104,24 @@ def get {α : Type} {rank : Nat} {shape : Vector Nat rank}
     exact hsize
 
   t.data[flat_index]
+
+/-- Tensor型へのデータの書き込み -/
+def set {α : Type} {rank : Nat} {shape : Vector Nat rank}
+    (t : Tensor α shape)
+    (index : Vector Nat rank)
+    (h : index_in_bounds shape index)
+    (value : α) : Tensor α shape :=
+  let flat_index := to_flat_index shape index
+  let hsize : flat_index < shape.foldl (· * ·) 1 := to_flat_index_lt_size shape index h
+  have : flat_index < t.data.size := by
+    rw [t.hsize]
+    exact hsize
+
+  let new_data := t.data.set flat_index value
+  have hsize' : new_data.size = shape.foldl (· * ·) 1 := by
+    rw [Array.size_set]
+    exact t.hsize
+  { data := new_data, hsize := hsize' }
 
 
 end Tensor
