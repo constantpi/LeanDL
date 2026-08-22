@@ -176,21 +176,37 @@ def set {α : Type} {rank : Nat} {shape : Vector Nat rank}
     exact t.hsize
   { data := new_data, hsize := hsize' }
 
+/-- shapeのサイズが0であること-/
+def shape_is_zero {rank : Nat} (shape : Vector Nat rank) : Prop :=
+  shape.foldl (· * ·) 1 = 0
+
+/-- shapeの合計サイズが0でないことと各要素が0でないことは同値-/
+theorem shape_nonzero_iff {rank : Nat} (shape : Vector Nat rank) :
+    ¬ shape_is_zero shape ↔ ∀ i : Fin rank, shape.get i ≠ 0 := by
+  unfold shape_is_zero
+  constructor
+  .
+    intro hsize i
+    by_contra h
+    have hprod : shape.foldl (· * ·) 1 = 0 := by
+      apply DL.Vector.foldl_mul_eq_zero_of_mem shape 1
+      rw [← h]
+      apply Vector.getElem_mem
+    contradiction
+  .
+    exact DL.Vector.foldl_mul_ne_zero rank shape
+
 /-- 1次元indexから多次元indexへ変換する。 -/
 def to_multi_index {rank : Nat} (shape : Vector Nat rank) (flat_index : Nat) (isLt : flat_index < shape.foldl (· * ·) 1) : Index shape :=
   -- 最初にshapeの各要素が0でないことを確認する
-  have hsize : ∀ i : Fin rank, 0 < shape.get i := by
-    have h_length : shape.foldl (· * ·) 1 > 0 := by omega
+  have hsize : ∀ i : Fin rank, shape.get i ≠ 0 := by
+    apply (shape_nonzero_iff shape).mp
+    simp [shape_is_zero]
+    omega
+  have hsize_nonzero : ∀ i : Fin rank, shape.get i > 0 := by
     intro i
-    by_cases h : shape.get i = 0
-    .
-      have hprod : shape.foldl (· * ·) 1 = 0 := by
-        apply DL.Vector.foldl_mul_eq_zero_of_mem shape 1
-        rw [← h]
-        apply Vector.getElem_mem
-      omega
-    .
-      omega
+    have h := hsize i
+    omega
   let values := Vector.ofFn fun i =>
     let stride := (shape.toList.drop (i.val + 1)).foldl (· * ·) 1
     (flat_index / stride) % shape.get i
@@ -200,7 +216,7 @@ def to_multi_index {rank : Nat} (shape : Vector Nat rank) (flat_index : Nat) (is
       intro i
       change values[i.val] < shape.get i
       simp [values]
-      exact Nat.mod_lt _ (hsize i)
+      exact Nat.mod_lt _ (hsize_nonzero i)
   }
 
 end Tensor
