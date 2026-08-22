@@ -1,0 +1,10 @@
+name = "LeanDL"
+version = "0.1.0"
+defaultTargets = ["leandl"]
+
+[[lean_lib]]
+name = "LeanDL"
+
+[[lean_exe]]
+name = "leandl"
+root = "Main"
