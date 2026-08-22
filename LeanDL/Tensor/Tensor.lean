@@ -3,14 +3,18 @@ import LeanDL.Tensor.Prod
 
 namespace DL
 
+/-- shapeの各次元の積。 -/
+def shapeSize {rank : Nat} (shape : Vector Nat rank) : Nat :=
+  shape.foldl (· * ·) 1
+
 structure Tensor (α : Type) {rank : Nat} (shape : Vector Nat rank) where
   data : Array α
-  hsize : data.size = shape.foldl (· * ·) 1
+  hsize : data.size = shapeSize shape
 
 namespace Tensor
 
 def fill {α : Type} {rank : Nat} (shape : Vector Nat rank) (value : α) : Tensor α shape :=
-  let size := shape.foldl (· * ·) 1
+  let size := shapeSize shape
   let data := Array.replicate size value
   have hsize : data.size = size := by simp [data]
   { data := data, hsize := hsize }
@@ -88,7 +92,7 @@ theorem to_flat_index_lt_size
     {rank : Nat}
     (shape index : Vector Nat rank)
     (h : index_in_bounds shape index) :
-    to_flat_index shape index < shape.foldl (· * ·) 1 := by
+    to_flat_index shape index < shapeSize shape := by
 
   -- zip の各要素 (dim, idx) について idx < dim
   have hzip :
@@ -145,7 +149,7 @@ def get {α : Type} {rank : Nat} {shape : Vector Nat rank}
     (t : Tensor α shape)
     (index : Index shape) : α :=
   let flat_index := to_flat_index shape index.values
-  let hsize : flat_index < shape.foldl (· * ·) 1 :=
+  let hsize : flat_index < shapeSize shape :=
     to_flat_index_lt_size shape index.values index.isValid
   have : flat_index < t.data.size := by
     rw [t.hsize]
@@ -164,21 +168,21 @@ def set {α : Type} {rank : Nat} {shape : Vector Nat rank}
     (index : Index shape)
     (value : α) : Tensor α shape :=
   let flat_index := to_flat_index shape index.values
-  let hsize : flat_index < shape.foldl (· * ·) 1 :=
+  let hsize : flat_index < shapeSize shape :=
     to_flat_index_lt_size shape index.values index.isValid
   have : flat_index < t.data.size := by
     rw [t.hsize]
     exact hsize
 
   let new_data := t.data.set flat_index value
-  have hsize' : new_data.size = shape.foldl (· * ·) 1 := by
+  have hsize' : new_data.size = shapeSize shape := by
     rw [Array.size_set]
     exact t.hsize
   { data := new_data, hsize := hsize' }
 
 /-- shapeのサイズが0であること-/
 def shape_is_zero {rank : Nat} (shape : Vector Nat rank) : Prop :=
-  shape.foldl (· * ·) 1 = 0
+  shapeSize shape = 0
 
 /-- shapeの合計サイズが0でないことと各要素が0でないことは同値-/
 theorem shape_nonzero_iff {rank : Nat} (shape : Vector Nat rank) :
@@ -188,7 +192,7 @@ theorem shape_nonzero_iff {rank : Nat} (shape : Vector Nat rank) :
   .
     intro hsize i
     by_contra h
-    have hprod : shape.foldl (· * ·) 1 = 0 := by
+    have hprod : shapeSize shape = 0 := by
       apply DL.Vector.foldl_mul_eq_zero_of_mem shape 1
       rw [← h]
       apply Vector.getElem_mem
@@ -197,7 +201,7 @@ theorem shape_nonzero_iff {rank : Nat} (shape : Vector Nat rank) :
     exact DL.Vector.foldl_mul_ne_zero rank shape
 
 /-- 1次元indexから多次元indexへ変換する。 -/
-def to_multi_index {rank : Nat} (shape : Vector Nat rank) (flat_index : Nat) (isLt : flat_index < shape.foldl (· * ·) 1) : Index shape :=
+def to_multi_index {rank : Nat} (shape : Vector Nat rank) (flat_index : Nat) (isLt : flat_index < shapeSize shape) : Index shape :=
   -- 最初にshapeの各要素が0でないことを確認する
   have hsize : ∀ i : Fin rank, shape.get i ≠ 0 := by
     apply (shape_nonzero_iff shape).mp
@@ -208,7 +212,7 @@ def to_multi_index {rank : Nat} (shape : Vector Nat rank) (flat_index : Nat) (is
     have h := hsize i
     omega
   let values := Vector.ofFn fun i =>
-    let stride := (shape.toList.drop (i.val + 1)).foldl (· * ·) 1
+    let stride := shapeSize (shape.drop (i.val + 1))
     (flat_index / stride) % shape.get i
   {
     values := values
