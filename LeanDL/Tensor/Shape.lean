@@ -3,6 +3,11 @@ import LeanDL.Tensor.Basic
 
 namespace DL.Tensor
 
+/-- 指定された軸をshapeから取り除く。 -/
+def eraseAxis {rank : Nat}
+    (shape : Vector Nat rank) (axis : Fin rank) : Vector Nat (rank - 1) :=
+  shape.eraseIdx axis.val axis.isLt
+
 
 /-- NumPy の規則で2つの次元がbroadcast可能か判定する。 -/
 private def compatible (left right : Nat) : Bool :=

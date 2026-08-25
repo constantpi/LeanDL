@@ -87,6 +87,76 @@ def zipWithSame
     hsize := result.hsize.trans hShapeSize
   }
 
+/--
+削除済みの軸を添字へ戻す。
+
+`axisIndex` が削除した軸の値で、それ以外の値は `index` から引き継ぐ。
+-/
+private def insertAxisIndex
+    {rank : Nat}
+    {shape : Vector Nat rank}
+    (axis : Fin rank)
+    (index : Index (eraseAxis shape axis))
+    (axisIndex : Fin (shape.get axis)) : Index shape :=
+  let values : Vector Nat rank := Vector.ofFn fun i =>
+    if hBefore : i.val < axis.val then
+      index.values.get ⟨i.val, by omega⟩
+    else if hAxis : i.val = axis.val then
+      axisIndex.val
+    else
+      index.values.get ⟨i.val - 1, by omega⟩
+  have isValid : index_in_bounds shape values := by
+    intro i
+    change values[i.val] < shape[i.val]
+    simp only [values, Vector.getElem_ofFn]
+    split
+    · rename_i hBefore
+      have h := index.isValid ⟨i.val, by omega⟩
+      change index.values[i.val] <
+        (shape.eraseIdx axis.val axis.isLt)[i.val] at h
+      rw [Vector.getElem_eraseIdx_of_lt axis.isLt (by omega) hBefore] at h
+      simpa [Vector.get] using h
+    · rename_i hNotBefore
+      split
+      · rename_i hAxis
+        have hi : i = axis := Fin.ext hAxis
+        subst i
+        exact axisIndex.isLt
+      · rename_i hNotAxis
+        have hAfter : axis.val < i.val := by omega
+        have h := index.isValid ⟨i.val - 1, by omega⟩
+        have hIndex : i.val - 1 + 1 = i.val := by omega
+        change index.values[i.val - 1] <
+          (shape.eraseIdx axis.val axis.isLt)[i.val - 1] at h
+        rw [Vector.getElem_eraseIdx_of_ge axis.isLt (by omega) (by omega)] at h
+        simpa [Vector.get, hIndex] using h
+  { values, isValid }
+
+/--
+指定された軸を、`initial` から `fold` で畳み込む。
+
+出力shapeから `axis` は削除される。軸上の要素は添字の小さい順に
+`fold accumulator element` として処理される。対象軸の長さが0なら、各出力要素は
+`initial` のままになる。
+-/
+def foldAxis
+    {α : Type}
+    {rank : Nat}
+    {shape : Vector Nat rank}
+    (tensor : Tensor α shape)
+    (axis : Fin rank)
+    (initial : α)
+    (fold : α → α → α) : Tensor α (eraseAxis shape axis) :=
+  let resultShape := eraseAxis shape axis
+  let erase_ax := shape.get axis
+  let data := Array.ofFn fun flatIndex : Fin (shapeSize resultShape) =>
+    let resultIndex := to_multi_index resultShape flatIndex flatIndex.isLt
+    let axisValues := Array.ofFn fun axisIndex : Fin erase_ax =>
+      tensor[insertAxisIndex axis resultIndex axisIndex]
+    axisValues.foldl fold initial
+  have hsize : data.size = shapeSize resultShape := by simp [data]
+  { data, hsize }
+
 /-- batch shape に行列の2次元を追加した shape の要素数。 -/
 private theorem foldl_append_matrix
     {batchRank : Nat} (batch : Vector Nat batchRank) (rows cols : Nat) :
@@ -367,5 +437,30 @@ example :
       (· * ·) (· + ·) 42 (by rfl) (by decide)).data =
       #[42, 42, 42, 42, 42, 42] := by
   decide
+
+private def foldAxisExample : Tensor Nat #v[2, 3] where
+  data := #[1, 2, 3, 4, 5, 6]
+  hsize := by decide
+
+example :
+    (foldAxis foldAxisExample (0 : Fin 2) 0 (· + ·)).data = #[5, 7, 9] := by
+  native_decide
+
+example :
+    (foldAxis foldAxisExample (1 : Fin 2) 0 (· + ·)).data = #[6, 15] := by
+  native_decide
+
+example :
+    (foldAxis foldAxisExample (1 : Fin 2) 0 max).data = #[3, 6] := by
+  native_decide
+
+private def foldEmptyAxisExample : Tensor Nat #v[2, 0, 3] where
+  data := #[]
+  hsize := by decide
+
+example :
+    (foldAxis foldEmptyAxisExample (1 : Fin 3) 7 (· + ·)).data =
+      #[7, 7, 7, 7, 7, 7] := by
+  native_decide
 
 end DL.Tensor
