@@ -4,3 +4,6 @@ import LeanDL.Tensor.Shape
 import LeanDL.Tensor.Basic
 import LeanDL.Tensor.Operations
 import LeanDL.Tensor.Manipulation
+import LeanDL.Tensor.Matrix
+import LeanDL.Layer.Basic
+import LeanDL.Layer.Linear

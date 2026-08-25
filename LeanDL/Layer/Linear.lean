@@ -4,12 +4,6 @@ import LeanDL.Tensor.Matrix
 namespace DL
 namespace Linear
 
-private theorem batchedVectorShapeSize (batchSize features : Nat) :
-    shapeSize (#v[batchSize] ++ #v[features]) = batchSize * features := by
-  unfold shapeSize
-  rw [Vector.foldl_append]
-  simp
-
 private def batchedVectorAsMatrix
     {α : Type} {batchSize features : Nat}
     (tensor : BatchedTensor α #v[features] batchSize) :
@@ -27,37 +21,6 @@ private def matrixAsBatchedVector
     unfold shapeSize
     rw [Vector.foldl_append]
     simp)
-
-private def batchedVectorGet
-    {α : Type} {batchSize features : Nat}
-    (tensor : BatchedTensor α #v[features] batchSize)
-    (batchIndex : Fin batchSize) (featureIndex : Fin features) : α :=
-  let flatIndex := batchIndex.val * features + featureIndex.val
-  have hFlat : flatIndex < batchSize * features := by
-    calc
-      batchIndex.val * features + featureIndex.val <
-          batchIndex.val * features + features :=
-        Nat.add_lt_add_left featureIndex.isLt _
-      _ = (batchIndex.val + 1) * features := by simp [Nat.add_mul]
-      _ ≤ batchSize * features :=
-        Nat.mul_le_mul_right features (Nat.succ_le_of_lt batchIndex.isLt)
-  have hIndex : flatIndex < tensor.data.size := by
-    rw [tensor.hsize, batchedVectorShapeSize]
-    exact hFlat
-  tensor.data[flatIndex]
-
-private def sumFin
-    {α : Type} [Add α] [OfNat α 0]
-    (size : Nat) (term : Fin size → α) : α :=
-  (Array.ofFn term).foldl (· + ·) 0
-
-private def makeVector
-    {α : Type} {features : Nat}
-    (value : Fin features → α) : Tensor α #v[features] :=
-  let data := Array.ofFn value
-  have hsize : data.size = shapeSize #v[features] := by
-    simp [data, shapeSize]
-  { data, hsize }
 
 /-- Linear layer の backward に必要な、batch size 付き input cache。 -/
 private structure Cache (α : Type) (inFeatures : Nat) where
@@ -122,10 +85,8 @@ private def backwardState
         (· * ·) (· + ·) 0 (by rfl)
       let accumulatedWeightGradient := Tensor.zipWithSame
         state.weightGradient currentWeightGradient (· + ·)
-      -- Tensor全体のsum演算が追加されるまでは、bias gradientだけをここで縮約する。
-      let currentBiasGradient := makeVector fun outputIndex =>
-        sumFin batchSize fun batchIndex =>
-          batchedVectorGet outputGradient batchIndex outputIndex
+      let currentBiasGradient := Tensor.foldAxis
+        outputGradientMatrix (0 : Fin 2) 0 (· + ·)
       let accumulatedBiasGradient := Tensor.zipWithSame
         state.biasGradient currentBiasGradient (· + ·)
       (inputGradient, { state with
