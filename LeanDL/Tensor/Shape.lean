@@ -62,6 +62,18 @@ def broadcast {leftRank rightRank : Nat}
   else
     none
 
+/-- 同じrankのshapeを `broadcast` の結果rankへ移したもの。 -/
+def broadcastSelfShape {rank : Nat}
+    (shape : Vector Nat rank) : Vector Nat (max rank rank) :=
+  Vector.cast (by simp) shape
+
+/-- shapeを自分自身とbroadcastすると、次元は変化しない。 -/
+theorem broadcast_self {rank : Nat} (shape : Vector Nat rank) :
+    broadcast shape shape = some (broadcastSelfShape shape) := by
+  simp [broadcast, broadcastSelfShape, compatible, broadcastDim, getPadded]
+  ext i hi
+  simp [Vector.get]
+
 private theorem broadcastDim_pos_left {left right : Nat} :
     broadcastDim left right ≠ 0 → left ≠ 0 := by
   unfold broadcastDim

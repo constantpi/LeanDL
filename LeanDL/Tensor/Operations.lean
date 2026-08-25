@@ -71,6 +71,22 @@ def zipWith
   have hsize : data.size = resultSize := by simp [data]
   { data := data, hsize := hsize }
 
+/-- 同じshapeの2つのTensorへ、要素ごとに関数 `f` を適用する。 -/
+def zipWithSame
+    {α β γ : Type}
+    {rank : Nat}
+    {shape : Vector Nat rank}
+    (left : Tensor α shape)
+    (right : Tensor β shape)
+    (f : α → β → γ) : Tensor γ shape :=
+  let result := zipWith left right f (broadcast_self shape)
+  have hShapeSize : shapeSize (broadcastSelfShape shape) = shapeSize shape := by
+    simp [shapeSize, broadcastSelfShape, Vector.foldl, Vector.cast]
+  {
+    data := result.data
+    hsize := result.hsize.trans hShapeSize
+  }
+
 /-- batch shape に行列の2次元を追加した shape の要素数。 -/
 private theorem foldl_append_matrix
     {batchRank : Nat} (batch : Vector Nat batchRank) (rows cols : Nat) :
