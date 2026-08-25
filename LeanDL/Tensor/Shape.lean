@@ -62,17 +62,174 @@ def broadcast {leftRank rightRank : Nat}
   else
     none
 
+private theorem compatible_comm (left right : Nat) :
+    compatible left right = compatible right left := by
+  simp [compatible, Bool.beq_comm, Bool.or_comm, Bool.or_left_comm]
+
+private theorem broadcastDim_comm_of_compatible (left right : Nat)
+    (h : compatible left right) :
+    broadcastDim left right = broadcastDim right left := by
+  simp [compatible] at h
+  unfold broadcastDim
+  split <;> split <;> simp_all
+
+/-- rankの順序を入れ替えたbroadcast結果を、元のrank順序へ移す。 -/
+def castBroadcastResult {leftRank rightRank : Nat} :
+    Option (Vector Nat (max rightRank leftRank)) →
+      Option (Vector Nat (max leftRank rightRank))
+  | none => none
+  | some shape => some (Vector.cast (Nat.max_comm rightRank leftRank) shape)
+
+private theorem getPadded_cast_target
+    {rank target1 target2 : Nat}
+    (shape : Vector Nat rank)
+    (h1 : rank ≤ target1)
+    (h2 : rank ≤ target2)
+    (hTarget : target1 = target2)
+    (i : Fin target1) :
+    getPadded shape h1 i = getPadded shape h2 (Fin.cast hTarget i) := by
+  subst target2
+  rfl
+
+/-- broadcastは左右のshapeを入れ替えても、rankのcastを除いて同じ結果になる。 -/
+theorem broadcast_comm
+    {leftRank rightRank : Nat}
+    (left : Vector Nat leftRank)
+    (right : Vector Nat rightRank) :
+    broadcast left right = castBroadcastResult (broadcast right left) := by
+  unfold broadcast
+  let leftDim := getPadded left (Nat.le_max_left leftRank rightRank)
+  let rightDim := getPadded right (Nat.le_max_right leftRank rightRank)
+  let swappedRightDim := getPadded right (Nat.le_max_left rightRank leftRank)
+  let swappedLeftDim := getPadded left (Nat.le_max_right rightRank leftRank)
+  have hRightDim : ∀ i : Fin (max leftRank rightRank),
+      rightDim i = swappedRightDim (Fin.cast (Nat.max_comm leftRank rightRank) i) := by
+    intro i
+    exact getPadded_cast_target right _ _ (Nat.max_comm leftRank rightRank) i
+  have hLeftDim : ∀ i : Fin (max leftRank rightRank),
+      leftDim i = swappedLeftDim (Fin.cast (Nat.max_comm leftRank rightRank) i) := by
+    intro i
+    exact getPadded_cast_target left _ _ (Nat.max_comm leftRank rightRank) i
+  by_cases hCompatible : ∀ i, compatible (leftDim i) (rightDim i)
+  · have hSwapped : ∀ i, compatible (swappedRightDim i) (swappedLeftDim i) := by
+      intro i
+      let j : Fin (max leftRank rightRank) :=
+        Fin.cast (Nat.max_comm rightRank leftRank) i
+      have h := hCompatible j
+      have hr := hRightDim j
+      have hl := hLeftDim j
+      rw [compatible_comm] at h
+      simpa [j, hr, hl] using h
+    rw [if_pos hCompatible, if_pos hSwapped]
+    simp only [castBroadcastResult, Option.some.injEq]
+    ext i hi
+    let j : Fin (max leftRank rightRank) := ⟨i, hi⟩
+    have h := broadcastDim_comm_of_compatible
+      (leftDim j) (rightDim j) (hCompatible j)
+    have hr := hRightDim j
+    have hl := hLeftDim j
+    have hResult :
+        broadcastDim (leftDim j) (rightDim j) =
+          broadcastDim
+            (swappedRightDim (Fin.cast (Nat.max_comm leftRank rightRank) j))
+            (swappedLeftDim (Fin.cast (Nat.max_comm leftRank rightRank) j)) := by
+      calc
+        broadcastDim (leftDim j) (rightDim j) =
+            broadcastDim (rightDim j) (leftDim j) := h
+        _ = _ := by rw [hr, hl]
+    simpa [j, leftDim, rightDim, swappedRightDim, swappedLeftDim, Vector.get] using hResult
+  · have hSwapped : ¬ ∀ i, compatible (swappedRightDim i) (swappedLeftDim i) := by
+      intro h
+      apply hCompatible
+      intro i
+      have hs := h (Fin.cast (Nat.max_comm leftRank rightRank) i)
+      have hr := hRightDim i
+      have hl := hLeftDim i
+      rw [compatible_comm] at hs
+      simpa [hr, hl] using hs
+    rw [if_neg hCompatible, if_neg hSwapped]
+    rfl
+
 /-- 同じrankのshapeを `broadcast` の結果rankへ移したもの。 -/
 def broadcastSelfShape {rank : Nat}
     (shape : Vector Nat rank) : Vector Nat (max rank rank) :=
   Vector.cast (by simp) shape
 
-/-- shapeを自分自身とbroadcastすると、次元は変化しない。 -/
+/-- suffixをprefix付きshapeのrankへ移したbroadcast結果shape。 -/
+def broadcastAppendShape
+    {prefixRank suffixRank : Nat}
+    (prefixShape : Vector Nat prefixRank)
+    (suffixShape : Vector Nat suffixRank) :
+    Vector Nat (max suffixRank (prefixRank + suffixRank)) :=
+  Vector.cast (by omega) (prefixShape ++ suffixShape)
+
+/--
+短いshapeが長いshapeのsuffixと一致する場合、broadcast結果は長いshapeになる。
+-/
+theorem broadcast_suffix_append
+    {prefixRank suffixRank : Nat}
+    (prefixShape : Vector Nat prefixRank)
+    (suffixShape : Vector Nat suffixRank) :
+    broadcast suffixShape (prefixShape ++ suffixShape) =
+      some (broadcastAppendShape prefixShape suffixShape) := by
+  simp [broadcast, broadcastAppendShape, compatible, broadcastDim, getPadded]
+  constructor
+  · intro i
+    by_cases h : i.val < prefixRank
+    · simp [h]
+    · have hiTotal : i.val < prefixRank + suffixRank := by omega
+      have hiSuffix : i.val - prefixRank < suffixRank := by omega
+      have hget :
+          (prefixShape ++ suffixShape).get ⟨i.val, hiTotal⟩ =
+            suffixShape.get ⟨i.val - prefixRank, hiSuffix⟩ := by
+        change
+          (prefixShape.toArray ++ suffixShape.toArray)[i.val]'(by simpa using hiTotal) =
+            suffixShape.toArray[i.val - prefixRank]'(by simpa using hiSuffix)
+        rw [Array.getElem_append_right (by simp; omega)]
+        simp
+      simp [h, hget]
+  · ext i hi
+    simp only [Vector.getElem_ofFn, Vector.getElem_cast]
+    by_cases h : i < prefixRank
+    · simp [h, Vector.get]
+    · have hiTotal : i < prefixRank + suffixRank := by omega
+      have hiSuffix : i - prefixRank < suffixRank := by omega
+      have hget :
+          (prefixShape ++ suffixShape).get ⟨i, hiTotal⟩ =
+            suffixShape.get ⟨i - prefixRank, hiSuffix⟩ := by
+        change
+          (prefixShape.toArray ++ suffixShape.toArray)[i]'(by simpa using hiTotal) =
+            suffixShape.toArray[i - prefixRank]'(by simpa using hiSuffix)
+        rw [Array.getElem_append_right (by simp; omega)]
+        simp
+      by_cases hone : suffixShape.get ⟨i - prefixRank, hiSuffix⟩ = 1
+      · rw [if_pos (by
+          intro hp
+          simpa [Vector.get] using hone)]
+        rfl
+      · simp [hone, h]
+        simpa using hget.symm
+
+private theorem broadcast_suffix_cast_append
+    {prefixRank suffixRank resultRank : Nat}
+    (prefixShape : Vector Nat prefixRank)
+    (suffixShape : Vector Nat suffixRank)
+    (hRank : prefixRank + suffixRank = resultRank) :
+    broadcast suffixShape (Vector.cast hRank (prefixShape ++ suffixShape)) =
+      some (Vector.cast (by omega) (prefixShape ++ suffixShape)) := by
+  subst resultRank
+  simpa [broadcastAppendShape] using
+    (broadcast_suffix_append prefixShape suffixShape)
+
+/--
+shapeを自分自身とbroadcastすると、次元は変化しない。
+これは `broadcast_suffix_append` のprefixが空である場合に相当する。
+-/
 theorem broadcast_self {rank : Nat} (shape : Vector Nat rank) :
     broadcast shape shape = some (broadcastSelfShape shape) := by
-  simp [broadcast, broadcastSelfShape, compatible, broadcastDim, getPadded]
-  ext i hi
-  simp [Vector.get]
+  have h := broadcast_suffix_cast_append
+    (#v[] : Vector Nat 0) shape (resultRank := rank) (by omega)
+  simpa [broadcastSelfShape, Vector.cast] using h
 
 private theorem broadcastDim_pos_left {left right : Nat} :
     broadcastDim left right ≠ 0 → left ≠ 0 := by
