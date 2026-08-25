@@ -313,6 +313,21 @@ theorem broadcast_some_pos {leftRank rightRank : Nat}
     apply (broadcastDim_pos (h_compat i)).mpr
     exact ⟨hpad_left, hpad_right⟩
 
+/-- `#[rows, 1]` は行列の各列へbroadcastされる。 -/
+theorem broadcast_matrix_column (rows cols : Nat) :
+    broadcast #v[rows, cols] #v[rows, 1] = some #v[rows, cols] := by
+  simp [broadcast, compatible, broadcastDim, getPadded, Vector.get]
+  constructor
+  · intro i
+    have hi : i.val = 0 ∨ i.val = 1 := by omega
+    rcases hi with hi | hi <;> simp [hi]
+  · apply Array.ext
+    · simp
+    · intro i hiLeft hiRight
+      have hi : i < 2 := by simpa using hiRight
+      have hIndex : i = 0 ∨ i = 1 := by omega
+      rcases hIndex with hIndex | hIndex <;> simp [hIndex, eq_comm]
+
 -- ここから先は検証用の example。
 
 -- 基本的なNumPy broadcastの例

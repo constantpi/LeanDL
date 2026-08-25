@@ -9,4 +9,5 @@ import LeanDL.Layer.Basic
 import LeanDL.Layer.Activation
 import LeanDL.Layer.ReLU
 import LeanDL.Layer.Sigmoid
+import LeanDL.Layer.Softmax
 import LeanDL.Layer.Linear
