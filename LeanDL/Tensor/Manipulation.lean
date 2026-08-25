@@ -117,6 +117,8 @@ def transpose
   have hsize : data.size = shapeSize resultShape := by simp [data]
   { data := data, hsize := hsize }
 
+-- ここから先は検証用の example と、それに付随する private 定義。
+
 private def manipulationExample : Tensor Nat #v[2, 3, 4] where
   data := Array.range 24
   hsize := by decide

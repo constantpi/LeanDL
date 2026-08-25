@@ -127,6 +127,8 @@ private structure DummyState where
   accumulatedGradient : Nat := 0
 
 /-- dummy Layer の rank の異なる二つの sample shape は要素数が等しい。 -/
+-- ここから先は検証用の example と、それに付随する private 定義。
+
 private theorem dummyShapeSize (batchSize : Nat) :
     shapeSize (#v[batchSize] ++ #v[2]) =
       shapeSize (#v[batchSize] ++ #v[1, 2]) := by

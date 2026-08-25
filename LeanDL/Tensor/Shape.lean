@@ -313,6 +313,8 @@ theorem broadcast_some_pos {leftRank rightRank : Nat}
     apply (broadcastDim_pos (h_compat i)).mpr
     exact ⟨hpad_left, hpad_right⟩
 
+-- ここから先は検証用の example。
+
 -- 基本的なNumPy broadcastの例
 example : broadcast #v[3, 1] #v[1, 4] = some #v[3, 4] := by decide
 example : broadcast #v[5, 1, 4] #v[3, 1] = some #v[5, 3, 4] := by decide

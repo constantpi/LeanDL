@@ -122,6 +122,8 @@ def new
     simp [forwardState, cacheBatchSize]
   backwardState := backwardState
 
+-- ここから先は検証用の example と、それに付随する private 定義。
+
 private def testWeight : Tensor Nat #v[2, 2] where
   data := #[1, 2, 3, 4]
   hsize := by decide

@@ -69,6 +69,8 @@ def zipWithVectorMatrix
   zipWithMatrixVector matrix vector fun matrixValue vectorValue =>
     f vectorValue matrixValue
 
+-- ここから先は検証用の example と、それに付随する private 定義。
+
 private def matmul2DExampleLeft : Tensor Nat #v[2, 3] where
   data := #[1, 2, 3, 4, 5, 6]
   hsize := by decide

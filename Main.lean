@@ -2,6 +2,8 @@ import LeanDL
 
 open DL
 
+-- ここから先は動作確認用の実行例と、それに付随する定義。
+
 /-- 最後の要素を指す、再利用可能な安全な添字。 -/
 def lastIndex : Tensor.Index #v[2, 2, 2] :=
   tensor_index% #v[1, 1, 1]

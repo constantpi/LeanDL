@@ -294,6 +294,8 @@ def matmul
   have hsize : data.size = resultSize := by simp [data]
   { data := data, hsize := hsize }
 
+-- ここから先は検証用の example と、それに付随する private 定義。
+
 private def broadcastExampleLeft : Tensor Nat #v[2, 1] where
   data := #[10, 20]
   hsize := by decide
