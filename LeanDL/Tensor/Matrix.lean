@@ -1,5 +1,6 @@
-import LeanDL.Tensor.Operations
+import LeanDL.Tensor.Elementwise
 import LeanDL.Tensor.Manipulation
+import LeanDL.Tensor.Matmul
 
 namespace DL.Tensor
 

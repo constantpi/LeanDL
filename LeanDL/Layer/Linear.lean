@@ -1,5 +1,6 @@
 import LeanDL.Layer.Basic
 import LeanDL.Tensor.Matrix
+import LeanDL.Tensor.Reduction
 
 namespace DL
 namespace Linear
