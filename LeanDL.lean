@@ -6,4 +6,7 @@ import LeanDL.Tensor.Operations
 import LeanDL.Tensor.Manipulation
 import LeanDL.Tensor.Matrix
 import LeanDL.Layer.Basic
+import LeanDL.Layer.Activation
+import LeanDL.Layer.ReLU
+import LeanDL.Layer.Sigmoid
 import LeanDL.Layer.Linear
