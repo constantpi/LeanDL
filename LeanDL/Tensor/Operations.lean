@@ -110,11 +110,39 @@ private def prefixIndex
     have h := index.isValid ⟨i.val, by omega⟩
     simpa [Vector.get, Vector.getElem_append] using h
 
+/-- transpose flagを適用した行列の物理 shape。論理 shape は常に `rows × cols`。 -/
+def matrixShape (transpose : Bool) (rows cols : Nat) : Vector Nat 2 :=
+  if transpose then #v[cols, rows] else #v[rows, cols]
+
+/-- 論理的な `(row, col)` を、transpose flagに応じた物理添字へ変換する。 -/
+private def matrixIndex
+    (transpose : Bool)
+    {rows cols : Nat}
+    (row : Fin rows) (col : Fin cols) :
+    Index (matrixShape transpose rows cols) := by
+  cases transpose with
+  | false =>
+      exact {
+        values := #v[row.val, col.val]
+        isValid := by
+          simp [matrixShape, index_in_bounds, Fin.forall_fin_succ, Vector.get,
+            row.isLt, col.isLt]
+      }
+  | true =>
+      exact {
+        values := #v[col.val, row.val]
+        isValid := by
+          simp [matrixShape, index_in_bounds, Fin.forall_fin_succ, Vector.get,
+            row.isLt, col.isLt]
+      }
+
 /--
 最後の2次元を行列、それ以前の次元を batch として一般化行列積を計算する。
 
-`left` と `right` の shape はそれぞれ `[..., rows, inner1]` と
-`[..., inner2, cols]` であり、`hInnerEq` が行列積の内側次元の一致を保証する。
+論理的な行列 shape はそれぞれ `rows × inner1` と `inner2 × cols` であり、
+`hInnerEq` が行列積の内側次元の一致を保証する。`transposeLeft` または
+`transposeRight` が `true` の場合、対応する入力は最後の2次元を逆順にした物理
+shapeで受け取り、Arrayを転置せず添字だけを入れ替えて参照する。
 batch 次元は `hBroadcast` に従って NumPy と同じ規則で broadcast される。
 
 各出力要素は `zero` から始め、`sum acc (mul leftValue rightValue)` の順に
@@ -127,8 +155,9 @@ def matmul
     {rightBatch : Vector Nat rightBatchRank}
     {resultBatch : Vector Nat (max leftBatchRank rightBatchRank)}
     {rows inner1 inner2 cols : Nat}
-    (left : Tensor α (leftBatch ++ #v[rows, inner1]))
-    (right : Tensor β (rightBatch ++ #v[inner2, cols]))
+    (transposeLeft transposeRight : Bool)
+    (left : Tensor α (leftBatch ++ matrixShape transposeLeft rows inner1))
+    (right : Tensor β (rightBatch ++ matrixShape transposeRight inner2 cols))
     (mul : α → β → γ)
     (sum : γ → γ → γ)
     (zero : γ)
@@ -166,18 +195,12 @@ def matmul
     let col := outputIndex.val % cols
     let products := Array.ofFn fun innerIndex : Fin inner1 =>
       let rightInnerIndex : Fin inner2 := Fin.cast hInnerEq innerIndex
-      let leftMatrixIndex : Index #v[rows, inner1] := {
-        values := #v[row, innerIndex.val]
-        isValid := by
-          simp [index_in_bounds, Fin.forall_fin_succ, Vector.get]
-          exact Nat.mod_lt _ hRowsPos
-      }
-      let rightMatrixIndex : Index #v[inner2, cols] := {
-        values := #v[rightInnerIndex.val, col]
-        isValid := by
-          simp [index_in_bounds, Fin.forall_fin_succ, Vector.get]
-          exact Nat.mod_lt _ hColsPos
-      }
+      let rowIndex : Fin rows := ⟨row, Nat.mod_lt _ hRowsPos⟩
+      let colIndex : Fin cols := ⟨col, Nat.mod_lt _ hColsPos⟩
+      let leftMatrixIndex :=
+        matrixIndex transposeLeft rowIndex innerIndex
+      let rightMatrixIndex :=
+        matrixIndex transposeRight rightInnerIndex colIndex
       let leftIndex := appendIndex leftBatchIndex leftMatrixIndex
       let rightIndex := appendIndex rightBatchIndex rightMatrixIndex
       mul left[leftIndex] right[rightIndex]
@@ -229,9 +252,43 @@ private def matmulExampleRight :
   hsize := by decide
 
 example :
-    (matmul (resultBatch := (#v[] : Vector Nat 0))
+    (matmul (resultBatch := (#v[] : Vector Nat 0)) false false
       matmulExampleLeft matmulExampleRight (· * ·) (· + ·) 0
       (by rfl) (by decide)).data =
+      #[58, 64, 139, 154] := by
+  decide
+
+private def transposedMatmulExampleLeft :
+    Tensor Nat ((#v[] : Vector Nat 0) ++ #v[3, 2]) where
+  data := #[1, 4, 2, 5, 3, 6]
+  hsize := by decide
+
+private def transposedMatmulExampleRight :
+    Tensor Nat ((#v[] : Vector Nat 0) ++ #v[2, 3]) where
+  data := #[7, 9, 11, 8, 10, 12]
+  hsize := by decide
+
+-- 左入力だけを転置扱いにしても、Arrayを並べ替えず論理行列積を計算できる。
+example :
+    (matmul (resultBatch := (#v[] : Vector Nat 0)) true false
+      transposedMatmulExampleLeft matmulExampleRight
+      (· * ·) (· + ·) 0 (by rfl) (by decide)).data =
+      #[58, 64, 139, 154] := by
+  decide
+
+-- 右入力だけを転置扱いにできる。
+example :
+    (matmul (resultBatch := (#v[] : Vector Nat 0)) false true
+      matmulExampleLeft transposedMatmulExampleRight
+      (· * ·) (· + ·) 0 (by rfl) (by decide)).data =
+      #[58, 64, 139, 154] := by
+  decide
+
+-- 両入力のtranspose flagは独立に組み合わせられる。
+example :
+    (matmul (resultBatch := (#v[] : Vector Nat 0)) true true
+      transposedMatmulExampleLeft transposedMatmulExampleRight
+      (· * ·) (· + ·) 0 (by rfl) (by decide)).data =
       #[58, 64, 139, 154] := by
   decide
 
@@ -244,8 +301,21 @@ private def batchedMatmulExampleRight : Tensor Nat (#v[1] ++ #v[3, 2]) where
   hsize := by decide
 
 example :
-    (matmul (resultBatch := #v[2])
+    (matmul (resultBatch := #v[2]) false false
       batchedMatmulExampleLeft batchedMatmulExampleRight
+      (· * ·) (· + ·) 0 (by rfl) (by decide)).data =
+      #[58, 64, 139, 154, 25, 28, 56, 62] := by
+  decide
+
+private def transposedBatchedMatmulExampleLeft :
+    Tensor Nat (#v[2] ++ #v[3, 2]) where
+  data := #[1, 4, 2, 5, 3, 6, 2, 1, 0, 3, 1, 2]
+  hsize := by decide
+
+-- transpose flagを使っても、先頭のbatch broadcast規則は変わらない。
+example :
+    (matmul (resultBatch := #v[2]) true false
+      transposedBatchedMatmulExampleLeft batchedMatmulExampleRight
       (· * ·) (· + ·) 0 (by rfl) (by decide)).data =
       #[58, 64, 139, 154, 25, 28, 56, 62] := by
   decide
@@ -259,7 +329,7 @@ private def unequalBatchRankRight : Tensor Nat (#v[3] ++ #v[2, 1]) where
   hsize := by decide
 
 example :
-    (matmul (resultBatch := #v[2, 3])
+    (matmul (resultBatch := #v[2, 3]) false false
       unequalBatchRankLeft unequalBatchRankRight
       (· * ·) (· + ·) 0 (by rfl) (by decide)).data =
       #[50, 110, 170, 110, 250, 390] := by
@@ -276,7 +346,7 @@ private def emptyInnerMatmulRight :
   hsize := by decide
 
 example :
-    (matmul (resultBatch := (#v[] : Vector Nat 0))
+    (matmul (resultBatch := (#v[] : Vector Nat 0)) false false
       emptyInnerMatmulLeft emptyInnerMatmulRight
       (· * ·) (· + ·) 42 (by rfl) (by decide)).data =
       #[42, 42, 42, 42, 42, 42] := by
