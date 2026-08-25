@@ -2,6 +2,18 @@ import LeanDL.Tensor.Indexing
 
 namespace DL.Tensor
 
+/-- Tensorの各要素に関数 `f` を適用する。shapeと要素の並びは変化しない。 -/
+def map
+    {α β : Type}
+    {rank : Nat}
+    {shape : Vector Nat rank}
+    (tensor : Tensor α shape)
+    (f : α → β) : Tensor β shape :=
+  let data := tensor.data.map f
+  have hsize : data.size = shapeSize shape := by
+    simp [data, tensor.hsize]
+  { data, hsize }
+
 /--
 2つのTensorをbroadcastしながら要素ごとに関数 `f` を適用する。
 
@@ -59,6 +71,19 @@ def zipWithSame
   }
 
 -- ここから先は検証用の example と、それに付随する private 定義。
+
+private def mapExample : Tensor Nat #v[2, 2] where
+  data := #[1, 2, 3, 4]
+  hsize := by decide
+
+example : (map mapExample (· * 2)).data = #[2, 4, 6, 8] := by
+  decide
+
+private def mapToBoolExample : Tensor Bool #v[2, 2] :=
+  map mapExample (· > 2)
+
+example : mapToBoolExample.data = #[false, false, true, true] := by
+  decide
 
 private def broadcastExampleLeft : Tensor Nat #v[2, 1] where
   data := #[10, 20]
