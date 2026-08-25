@@ -1,4 +1,5 @@
 import LeanDL.Tensor.Basic
+import LeanDL.Tensor.Tactics
 
 namespace DL
 
@@ -132,9 +133,7 @@ private structure DummyState where
 private theorem dummyShapeSize (batchSize : Nat) :
     shapeSize (#v[batchSize] ++ #v[2]) =
       shapeSize (#v[batchSize] ++ #v[1, 2]) := by
-  unfold shapeSize
-  rw [Vector.foldl_append, Vector.foldl_append]
-  simp
+  shape_simp
 
 private def dummyForwardState
     {batchSize : Nat}

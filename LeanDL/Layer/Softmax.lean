@@ -3,6 +3,7 @@ import LeanDL.Tensor.Elementwise
 import LeanDL.Tensor.Manipulation
 import LeanDL.Tensor.Matmul
 import LeanDL.Tensor.Reduction
+import LeanDL.Tensor.Tactics
 
 namespace DL.Softmax
 
@@ -10,51 +11,36 @@ private def batchedVectorAsMatrix
     {α : Type} {batchSize features : Nat}
     (tensor : BatchedTensor α #v[features] batchSize) :
     Tensor α #v[batchSize, features] :=
-  Tensor.reshape tensor _ (by
-    unfold shapeSize
-    rw [Vector.foldl_append]
-    simp)
+  Tensor.reshape tensor _ (by tensor_shape)
 
 private def matrixAsBatchedVector
     {α : Type} {batchSize features : Nat}
     (tensor : Tensor α #v[batchSize, features]) :
     BatchedTensor α #v[features] batchSize :=
-  Tensor.reshape tensor _ (by
-    unfold shapeSize
-    rw [Vector.foldl_append]
-    simp)
+  Tensor.reshape tensor _ (by tensor_shape)
 
 private def vectorAsColumn
     {α : Type} {rows : Nat}
     (tensor : Tensor α #v[rows]) : Tensor α #v[rows, 1] :=
-  Tensor.reshape tensor _ (by simp [shapeSize])
+  Tensor.reshape tensor _ (by tensor_shape)
 
 private def batchedVectorAsRowMatrix
     {α : Type} {batchSize features : Nat}
     (tensor : BatchedTensor α #v[features] batchSize) :
     Tensor α (#v[batchSize] ++ #v[1, features]) :=
-  Tensor.reshape tensor _ (by
-    unfold shapeSize
-    rw [Vector.foldl_append, Vector.foldl_append]
-    simp)
+  Tensor.reshape tensor _ (by tensor_shape)
 
 private def batchedVectorAsColumnMatrix
     {α : Type} {batchSize features : Nat}
     (tensor : BatchedTensor α #v[features] batchSize) :
     Tensor α (#v[batchSize] ++ #v[features, 1]) :=
-  Tensor.reshape tensor _ (by
-    unfold shapeSize
-    rw [Vector.foldl_append, Vector.foldl_append]
-    simp)
+  Tensor.reshape tensor _ (by tensor_shape)
 
 private def batchedScalarMatrixAsColumn
     {α : Type} {batchSize : Nat}
     (tensor : Tensor α (#v[batchSize] ++ #v[1, 1])) :
     Tensor α #v[batchSize, 1] :=
-  Tensor.reshape tensor _ (by
-    unfold shapeSize
-    rw [Vector.foldl_append]
-    simp)
+  Tensor.reshape tensor _ (by tensor_shape)
 
 private def zipWithMatrixColumn
     {α β γ : Type} {rows cols : Nat}

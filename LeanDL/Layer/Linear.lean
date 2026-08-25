@@ -1,6 +1,7 @@
 import LeanDL.Layer.Basic
 import LeanDL.Tensor.Matrix
 import LeanDL.Tensor.Reduction
+import LeanDL.Tensor.Tactics
 
 namespace DL
 namespace Linear
@@ -9,19 +10,13 @@ private def batchedVectorAsMatrix
     {α : Type} {batchSize features : Nat}
     (tensor : BatchedTensor α #v[features] batchSize) :
     Tensor α #v[batchSize, features] :=
-  Tensor.reshape tensor _ (by
-    unfold shapeSize
-    rw [Vector.foldl_append]
-    simp)
+  Tensor.reshape tensor _ (by shape_simp)
 
 private def matrixAsBatchedVector
     {α : Type} {batchSize features : Nat}
     (tensor : Tensor α #v[batchSize, features]) :
     BatchedTensor α #v[features] batchSize :=
-  Tensor.reshape tensor _ (by
-    unfold shapeSize
-    rw [Vector.foldl_append]
-    simp)
+  Tensor.reshape tensor _ (by shape_simp)
 
 /-- Linear layer の backward に必要な、batch size 付き input cache。 -/
 private structure Cache (α : Type) (inFeatures : Nat) where

@@ -1,6 +1,7 @@
 import LeanDL.Tensor.Elementwise
 import LeanDL.Tensor.Manipulation
 import LeanDL.Tensor.Matmul
+import LeanDL.Tensor.Tactics
 
 namespace DL.Tensor
 
@@ -9,9 +10,7 @@ private abbrev emptyBatch : Vector Nat 0 := #v[]
 private theorem shapeSize_empty_append
     {rank : Nat} (shape : Vector Nat rank) :
     shapeSize shape = shapeSize (emptyBatch ++ shape) := by
-  unfold shapeSize
-  rw [Vector.foldl_append]
-  simp
+  shape_simp
 
 /--
 通常の2次元Tensor同士で行列積を計算する。

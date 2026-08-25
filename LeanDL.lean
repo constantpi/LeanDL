@@ -2,6 +2,7 @@
 -- Import modules here that should be built as part of the library.
 import LeanDL.Tensor.Shape
 import LeanDL.Tensor.Basic
+import LeanDL.Tensor.Tactics
 import LeanDL.Tensor.Operations
 import LeanDL.Tensor.Manipulation
 import LeanDL.Tensor.Matrix
