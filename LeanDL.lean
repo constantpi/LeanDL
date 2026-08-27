@@ -12,3 +12,4 @@ import LeanDL.Layer.ReLU
 import LeanDL.Layer.Sigmoid
 import LeanDL.Layer.Softmax
 import LeanDL.Layer.Linear
+import LeanDL.Model.Sequential
