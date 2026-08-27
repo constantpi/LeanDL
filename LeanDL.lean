@@ -13,3 +13,4 @@ import LeanDL.Layer.Sigmoid
 import LeanDL.Layer.Softmax
 import LeanDL.Layer.Linear
 import LeanDL.Model.Sequential
+import LeanDL.Model.Notation
