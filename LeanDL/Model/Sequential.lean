@@ -101,6 +101,28 @@ def backward
       let headResult := head.backward tailResult.1 hBatch.1
       (headResult.1, .cons headResult.2 tailResult.2)
 
+/-- model内のすべてのLayerで、蓄積済みgradientを使ってparameterを更新する。 -/
+def step
+    {α : Type}
+    {inputRank outputRank : Nat}
+    {inputShape : Vector Nat inputRank}
+    {outputShape : Vector Nat outputRank} :
+    Sequential α inputShape outputShape →
+    Sequential α inputShape outputShape
+  | .nil => .nil
+  | .cons head tail => .cons head.step tail.step
+
+/-- model内のparameterを更新せず、すべての蓄積済みgradientをzeroへ戻す。 -/
+def zeroGrad
+    {α : Type}
+    {inputRank outputRank : Nat}
+    {inputShape : Vector Nat inputRank}
+    {outputShape : Vector Nat outputRank} :
+    Sequential α inputShape outputShape →
+    Sequential α inputShape outputShape
+  | .nil => .nil
+  | .cons head tail => .cons head.zeroGrad tail.zeroGrad
+
 /-- shapeが接続可能な2つの直列モデルを連結する。 -/
 def append
     {α : Type}
