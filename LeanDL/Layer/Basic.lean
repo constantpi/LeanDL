@@ -1,5 +1,6 @@
 import LeanDL.Tensor.Basic
 import LeanDL.Tensor.Tactics
+import LeanDL.Optimizer.Parameter
 
 namespace DL
 
@@ -23,8 +24,8 @@ batch size に依存せず、input/output の rank が異なっていてもよ�
 Layer 固有の parameter、forward cache、蓄積済み parameter gradient は、実装側が
 `State` に格納する。`forwardState` は backward に必要な値を state に保存し、
 `backwardState` は cache を利用して parameter gradient を既存値へ加算することを
-想定している。parameter の更新はこのインターフェースには含めず、backward から
-分離する。
+想定している。`stepState` は蓄積済みgradientを使うparameter更新をbackwardから
+分離し、`zeroGradState` は更新せずにgradientだけを破棄する。
 
 状態の受け渡しを明示しつつ、利用側は `Layer.forward` と `Layer.backward` が返す
 更新済み Layer を次の呼び出しへ渡すだけでよい。`backward` は cache と gradient の
@@ -55,6 +56,10 @@ structure Layer
     (state : State) →
     cachedBatchSizeState state = some batchSize →
     BatchedTensor α inputShape batchSize × State
+  /-- 蓄積済みgradientを使ってparameterを更新する。 -/
+  stepState : StateM State Unit := fun state => ((), state)
+  /-- parameterを更新せず、蓄積済みgradientをzeroへ戻す。 -/
+  zeroGradState : StateM State Unit := fun state => ((), state)
 
 namespace Layer
 
@@ -115,6 +120,28 @@ def backward
   let (inputGradient, nextState) :=
     layer.backwardState outputGradient layer.state hBatch
   (inputGradient, { layer with state := nextState })
+
+/-- 蓄積済みgradientを使ってparameterを更新する。 -/
+def step
+    {α : Type}
+    {inputRank outputRank : Nat}
+    {inputShape : Vector Nat inputRank}
+    {outputShape : Vector Nat outputRank}
+    (layer : Layer α inputShape outputShape) :
+    Layer α inputShape outputShape :=
+  let (_, nextState) := layer.stepState layer.state
+  { layer with state := nextState }
+
+/-- parameterを更新せず、蓄積済みgradientをzeroへ戻す。 -/
+def zeroGrad
+    {α : Type}
+    {inputRank outputRank : Nat}
+    {inputShape : Vector Nat inputRank}
+    {outputShape : Vector Nat outputRank}
+    (layer : Layer α inputShape outputShape) :
+    Layer α inputShape outputShape :=
+  let (_, nextState) := layer.zeroGradState layer.state
+  { layer with state := nextState }
 
 end Layer
 
