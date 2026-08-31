@@ -223,5 +223,29 @@ def to_multi_index {rank : Nat} (shape : Vector Nat rank) (flat_index : Nat) (is
       exact Nat.mod_lt _ (hsize_nonzero i)
   }
 
+/--
+shape内の各添字に対する関数からTensorを構築する。
+
+利用側は平坦なArray添字やデータサイズの証明を扱わず、shapeに対して有効な
+`Tensor.Index` だけを受け取る。
+-/
+def ofFn
+    {α : Type}
+    {rank : Nat}
+    (shape : Vector Nat rank)
+    (f : Index shape → α) : Tensor α shape :=
+  let data := Array.ofFn fun flatIndex : Fin (shapeSize shape) =>
+    f (to_multi_index shape flatIndex.val flatIndex.isLt)
+  have hsize : data.size = shapeSize shape := by
+    simp [data]
+  { data, hsize }
+
+private def ofFnExample : Tensor Nat #v[2, 3] :=
+  ofFn #v[2, 3] fun index =>
+    index.values.get (0 : Fin 2) * 10 + index.values.get (1 : Fin 2)
+
+example : ofFnExample.data = #[0, 1, 2, 10, 11, 12] := by
+  decide
+
 end Tensor
 end DL
