@@ -69,6 +69,17 @@ def zipWithVectorMatrix
   zipWithMatrixVector matrix vector fun matrixValue vectorValue =>
     f vectorValue matrixValue
 
+/--
+`matrix[row, col]` と `column[row, 0]` に `f` を適用し、columnを列方向へbroadcastする。
+-/
+def zipWithMatrixColumn
+    {α β γ : Type}
+    {rows cols : Nat}
+    (matrix : Tensor α #v[rows, cols])
+    (column : Tensor β #v[rows, 1])
+    (f : α → β → γ) : Tensor γ #v[rows, cols] :=
+  zipWith matrix column f (broadcast_matrix_column rows cols)
+
 -- ここから先は検証用の example と、それに付随する private 定義。
 
 private def matmul2DExampleLeft : Tensor Nat #v[2, 3] where
@@ -104,6 +115,15 @@ private def matrixVectorExampleVector : Tensor Nat #v[3] where
 example :
     (zipWithMatrixVector matrixVectorExampleMatrix matrixVectorExampleVector
       (· + ·)).data = #[11, 22, 33, 14, 25, 36] := by
+  decide
+
+private def matrixColumnExampleColumn : Tensor Nat #v[2, 1] where
+  data := #[10, 20]
+  hsize := by decide
+
+example :
+    (zipWithMatrixColumn matrixVectorExampleMatrix matrixColumnExampleColumn
+      (· + ·)).data = #[11, 12, 13, 24, 25, 26] := by
   decide
 
 end DL.Tensor

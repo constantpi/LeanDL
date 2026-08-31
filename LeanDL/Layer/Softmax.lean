@@ -1,6 +1,7 @@
 import LeanDL.Layer.Basic
 import LeanDL.Tensor.Elementwise
 import LeanDL.Tensor.Manipulation
+import LeanDL.Tensor.Matrix
 import LeanDL.Tensor.Matmul
 import LeanDL.Tensor.Reduction
 import LeanDL.Tensor.Tactics
@@ -42,13 +43,6 @@ private def batchedScalarMatrixAsColumn
     Tensor α #v[batchSize, 1] :=
   Tensor.reshape tensor _ (by tensor_shape)
 
-private def zipWithMatrixColumn
-    {α β γ : Type} {rows cols : Nat}
-    (matrix : Tensor α #v[rows, cols])
-    (column : Tensor β #v[rows, 1])
-    (f : α → β → γ) : Tensor γ #v[rows, cols] :=
-  Tensor.zipWith matrix column f (Tensor.broadcast_matrix_column rows cols)
-
 private def negativeInfinity : Float :=
   -1 / 0
 
@@ -76,11 +70,11 @@ private def forwardState
     let inputMatrix := batchedVectorAsMatrix input
     let rowMaximums := Tensor.foldAxis
       inputMatrix (1 : Fin 2) negativeInfinity maximum
-    let centered := zipWithMatrixColumn inputMatrix (vectorAsColumn rowMaximums)
+    let centered := Tensor.zipWithMatrixColumn inputMatrix (vectorAsColumn rowMaximums)
       (· - ·)
     let exponentials := Tensor.map centered Float.exp
     let rowSums := Tensor.foldAxis exponentials (1 : Fin 2) 0 (· + ·)
-    let outputMatrix := zipWithMatrixColumn exponentials (vectorAsColumn rowSums)
+    let outputMatrix := Tensor.zipWithMatrixColumn exponentials (vectorAsColumn rowSums)
       (· / ·)
     let output : BatchedTensor Float #v[features] batchSize :=
       matrixAsBatchedVector outputMatrix
@@ -115,7 +109,7 @@ private def backwardState
         (· * ·) (· + ·) 0 (by rfl) hBatchBroadcast
       let rowDotProducts :=
         batchedScalarMatrixAsColumn rowDotProductsWithMatrixDimensions
-      let centeredGradient := zipWithMatrixColumn
+      let centeredGradient := Tensor.zipWithMatrixColumn
         outputGradientMatrix rowDotProducts (· - ·)
       let inputGradientMatrix := Tensor.zipWithSame
         outputMatrix centeredGradient (· * ·)
