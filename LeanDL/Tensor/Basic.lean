@@ -19,6 +19,38 @@ def fill {α : Type} {rank : Nat} (shape : Vector Nat rank) (value : α) : Tenso
   have hsize : data.size = size := by simp [data]
   { data := data, hsize := hsize }
 
+/--
+実行時に得られたArrayからTensorを構築する。
+
+Arrayの要素数がshapeの要素数と一致する場合は、要素の並びを変えずにTensorとして
+返す。一致しない場合は `none` を返す。
+-/
+def ofArray?
+    {α : Type}
+    {rank : Nat}
+    (shape : Vector Nat rank)
+    (data : Array α) : Option (Tensor α shape) :=
+  if hsize : data.size = shapeSize shape then
+    some { data, hsize }
+  else
+    none
+
+example :
+    (ofArray? #v[2, 2] #[1, 2, 3, 4]).map Tensor.data =
+      some #[1, 2, 3, 4] := by
+  decide
+
+example : (ofArray? #v[2, 2] #[1, 2, 3]).isNone = true := by
+  decide
+
+example :
+    (ofArray? #v[2, 0, 3] (#[] : Array Nat)).map Tensor.data = some #[] := by
+  decide
+
+example :
+    (ofArray? #v[] #[42]).map Tensor.data = some #[42] := by
+  decide
+
 def shape {α : Type} {rank : Nat} {shape : Vector Nat rank} (_t : Tensor α shape) : Vector Nat rank :=
   shape
 
